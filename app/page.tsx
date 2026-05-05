@@ -1,65 +1,204 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useRef } from 'react';
+
+type Message = { role: 'user' | 'assistant'; content: string };
 
 export default function Home() {
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [question, setQuestion] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Upload and index the document
+  async function handleUpload() {
+    if (!file) return;
+    setUploading(true);
+    setUploadStatus('Processing document...');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (res.ok) {
+        setUploadStatus(`✅ Ready! Document uploaded successfully.`);
+      } else {
+        setUploadStatus(`❌ ${data.error}`);
+      }
+    } catch {
+      setUploadStatus('❌ Upload failed. Check your connection.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // Ask a question and stream the answer
+  async function handleAsk() {
+    if (!question.trim() || loading) return;
+
+    const userMessage: Message = { role: 'user', content: question };
+    setMessages(prev => [...prev, userMessage]);
+    setQuestion('');
+    setLoading(true);
+
+    // Placeholder for streaming
+    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+    try {
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question }),
+      });
+
+      if (!res.body) throw new Error('No response body');
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        assistantText += decoder.decode(value, { stream: true });
+
+        // Update the last message (assistant) in real time
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: 'assistant',
+            content: assistantText,
+          };
+          return updated;
+        });
+      }
+    } catch {
+      setMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          role: 'assistant',
+          content: '❌ Something went wrong. Please try again.',
+        };
+        return updated;
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-gray-50 flex flex-col items-center py-12 px-4">
+      <div className="w-full max-w-2xl">
+
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-semibold text-gray-900">DocSense</h1>
+          <p className="text-gray-500 mt-1">Upload a document, ask it anything</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        {/* Upload Card */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+          <h2 className="text-sm font-medium text-gray-700 mb-3">1. Upload your document</h2>
+
+          <div
+            className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors"
+            onClick={() => fileInputRef.current?.click()}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            {file ? (
+              <p className="text-gray-700 font-medium">{file.name}</p>
+            ) : (
+              <>
+                <p className="text-gray-400">Click to select a PDF or .txt file</p>
+                <p className="text-gray-300 text-sm mt-1">Max ~50 pages works best</p>
+              </>
+            )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.txt"
+            className="hidden"
+            onChange={e => {
+              setFile(e.target.files?.[0] || null);
+              setUploadStatus('');
+            }}
+          />
+
+          <button
+            onClick={handleUpload}
+            disabled={!file || uploading}
+            className="mt-4 w-full py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium
+                       hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {uploading ? 'Indexing document...' : 'Upload & Index'}
+          </button>
+
+          {uploadStatus && (
+            <p className="mt-3 text-sm text-gray-600">{uploadStatus}</p>
+          )}
+        </div>
+
+        {/* Chat Card */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h2 className="text-sm font-medium text-gray-700 mb-3">2. Ask questions</h2>
+
+          {/* Messages */}
+          <div className="space-y-4 mb-4 min-h-[80px]">
+            {messages.length === 0 && (
+              <p className="text-gray-400 text-sm text-center py-6">
+                Upload a document above, then ask anything about it
+              </p>
+            )}
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[85%] px-4 py-2.5 rounded-xl text-sm leading-relaxed whitespace-pre-wrap
+                    ${msg.role === 'user'
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-800'
+                    }`}
+                >
+                  {msg.content}
+                  {msg.role === 'assistant' && loading && i === messages.length - 1 && (
+                    <span className="inline-block w-1 h-4 bg-gray-400 ml-0.5 animate-pulse" />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Input */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={question}
+              onChange={e => setQuestion(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAsk()}
+              placeholder="What is this document about?"
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm
+                         focus:outline-none focus:ring-2 focus:ring-gray-300"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <button
+              onClick={handleAsk}
+              disabled={!question.trim() || loading}
+              className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium
+                         hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Ask
+            </button>
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
