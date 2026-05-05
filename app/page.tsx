@@ -13,7 +13,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Upload and index the document
   async function handleUpload() {
     if (!file) return;
     setUploading(true);
@@ -27,7 +26,7 @@ export default function Home() {
       const data = await res.json();
 
       if (res.ok) {
-        setUploadStatus(`✅ Ready! Document uploaded successfully.`);
+        setUploadStatus('✅ Ready! Document uploaded successfully.');
       } else {
         setUploadStatus(`❌ ${data.error}`);
       }
@@ -38,7 +37,6 @@ export default function Home() {
     }
   }
 
-  // Ask a question and stream the answer
   async function handleAsk() {
     if (!question.trim() || loading) return;
 
@@ -47,7 +45,6 @@ export default function Home() {
     setQuestion('');
     setLoading(true);
 
-    // Placeholder for streaming
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
     try {
@@ -68,7 +65,6 @@ export default function Home() {
         if (done) break;
         assistantText += decoder.decode(value, { stream: true });
 
-        // Update the last message (assistant) in real time
         setMessages(prev => {
           const updated = [...prev];
           updated[updated.length - 1] = {
@@ -99,23 +95,23 @@ export default function Home() {
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-semibold text-gray-900">DocSense</h1>
-          <p className="text-gray-500 mt-1">Upload a document, ask it anything</p>
+          <p className="text-gray-600 mt-1">Upload a document, ask it anything</p>
         </div>
 
         {/* Upload Card */}
         <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
-          <h2 className="text-sm font-medium text-gray-700 mb-3">1. Upload your document</h2>
+          <h2 className="text-sm font-medium text-gray-900 mb-3">1. Upload your document</h2>
 
           <div
-            className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors"
+            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-500 transition-colors"
             onClick={() => fileInputRef.current?.click()}
           >
             {file ? (
-              <p className="text-gray-700 font-medium">{file.name}</p>
+              <p className="text-gray-900 font-medium">{file.name}</p>
             ) : (
               <>
-                <p className="text-gray-400">Click to select a PDF or .txt file</p>
-                <p className="text-gray-300 text-sm mt-1">Max ~50 pages works best</p>
+                <p className="text-gray-700 font-medium">Click to select a PDF or .txt file</p>
+                <p className="text-gray-500 text-sm mt-1">Max ~50 pages works best</p>
               </>
             )}
           </div>
@@ -141,18 +137,18 @@ export default function Home() {
           </button>
 
           {uploadStatus && (
-            <p className="mt-3 text-sm text-gray-600">{uploadStatus}</p>
+            <p className="mt-3 text-sm text-gray-800">{uploadStatus}</p>
           )}
         </div>
 
         {/* Chat Card */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h2 className="text-sm font-medium text-gray-700 mb-3">2. Ask questions</h2>
+          <h2 className="text-sm font-medium text-gray-900 mb-3">2. Ask questions</h2>
 
           {/* Messages */}
           <div className="space-y-4 mb-4 min-h-[80px]">
             {messages.length === 0 && (
-              <p className="text-gray-400 text-sm text-center py-6">
+              <p className="text-gray-500 text-sm text-center py-6">
                 Upload a document above, then ask anything about it
               </p>
             )}
@@ -165,7 +161,7 @@ export default function Home() {
                   className={`max-w-[85%] px-4 py-2.5 rounded-xl text-sm leading-relaxed whitespace-pre-wrap
                     ${msg.role === 'user'
                       ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-800'
+                      : 'bg-gray-100 text-gray-900'
                     }`}
                 >
                   {msg.content}
@@ -185,8 +181,10 @@ export default function Home() {
               onChange={e => setQuestion(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAsk()}
               placeholder="What is this document about?"
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm
-                         focus:outline-none focus:ring-2 focus:ring-gray-300"
+              style={{ color: '#111827' }}
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm
+                         text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400
+                         placeholder:text-gray-900"
             />
             <button
               onClick={handleAsk}
@@ -194,10 +192,11 @@ export default function Home() {
               className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium
                          hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              Ask
+              {loading ? '...' : 'Ask'}
             </button>
           </div>
         </div>
+
       </div>
     </main>
   );
